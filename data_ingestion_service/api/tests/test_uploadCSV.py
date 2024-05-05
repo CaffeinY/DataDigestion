@@ -10,9 +10,13 @@ from decimal import Decimal
 class UploadCSVTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.url = reverse('upload-csv')
-
+        
     def test_csv_upload_and_db_entry(self):
+        # register a user and get token
+        response = self.client.post(reverse('register'), {'username': 'testuser', 'password': 'testpassword'})
+        response = self.client.post(reverse('token_obtain_pair'), {'username': 'testuser', 'password': 'testpassword'})
+        self.token = response.data['access']
+
         # get file path
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         file_path = os.path.join(base_dir, 'data_sample',  'consumers_balances.csv')
@@ -21,9 +25,8 @@ class UploadCSVTests(TestCase):
         with open(file_path, 'rb') as f:
             csv_file = SimpleUploadedFile("sample.csv", f.read(), content_type="text/csv")
         
-        
         # send request
-        response = self.client.post(self.url, {'file': csv_file}, format='multipart')
+        response = self.client.post(reverse("upload-csv"), {'file': csv_file}, format='multipart', HTTP_AUTHORIZATION=f'Bearer {self.token}')
         
         # check response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -39,26 +42,78 @@ class UploadCSVTests(TestCase):
         self.assertEqual(account.consumer_address, "0233 Edwards Glens\nAllisonhaven, HI 91491")
         self.assertEqual(account.ssn, "018-79-4253")
 
+
+    # Test upload for a client through an endpoint and retrieve the data for an agency
+    def test_get_data_for_agency(self):
+        # register a client and get token
+        response = self.client.post(reverse('register'), {'username': 'testuser', 'password': 'testpassword'})
+        response = self.client.post(reverse('token_obtain_pair'), {'username': 'testuser', 'password': 'testpassword'})
+        self.token = response.data['access']
+
+        # get file path
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        file_path = os.path.join(base_dir, 'data_sample',  'consumers_balances.csv')
+
+        # read file content
+        with open(file_path, 'rb') as f:
+            csv_file = SimpleUploadedFile("sample.csv", f.read(), content_type="text/csv")
+        
+        # send POST request
+        response = self.client.post(reverse("upload-csv"), {'file': csv_file}, format='multipart', 
+                                    HTTP_AUTHORIZATION=f'Bearer {self.token}')
+        
         
 
-    def test_simple(self):
-        csv_content = 'client reference no,balance,status,consumer name,consumer address,ssn\n'\
-                    'ffeb5d88-e5af-45f0-9637-16ea469c58c0,59638.99,INACTIVE,Jessica Williams,"0233 Edwards Glens'\
-                    'Allisonhaven, HI 91491",018-79-4253'
+        # register a user and get token
+        response = self.client.post(reverse('register'), {'username': 'testuser', 'password': 'testpassword'})
+        response = self.client.post(reverse('token_obtain_pair'), {'username': 'testuser', 'password': 'testpassword'})
+        self.token = response.data['access']
 
-        csv_file = SimpleUploadedFile("test.csv", csv_content.encode('utf-8'), content_type="text/csv")
-        response = self.client.post(self.url, {'file': csv_file}, format='multipart')
-
+        # send request
+        response = self.client.get(reverse("accounts-list"), HTTP_AUTHORIZATION=f'Bearer {self.token}')
+        
+        # check response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        account = Account.objects.get(client_reference_no='ffeb5d88-e5af-45f0-9637-16ea469c58c0')
-        self.assertEqual(account.consumer_name, 'Jessica Williams')
+        self.assertEqual(len(response.data['results']), 100)
+        self.assertEqual(response.data['results'][0]['client_reference_no'], 'ffeb5d88-e5af-45f0-9637-16ea469c58c0')
+        self.assertEqual(response.data['results'][0]['consumer_name'], 'Jessica Williams')
+        self.assertEqual(response.data['results'][0]['balance'], '59638.99')
+        self.assertEqual(response.data['results'][0]['status'], 'INACTIVE')
+        self.assertEqual(response.data['results'][0]['consumer_address'], '0233 Edwards Glens\nAllisonhaven, HI 91491')
 
-    def test_upload_invalid_file_type(self):
-        url = reverse('upload-csv')
-        # upload a non-CSV file
-        file_content = b'Some binary data here'
-        non_csv_file = SimpleUploadedFile("test.png", file_content, content_type="image/png")
-        response = self.client.post(url, {'file': non_csv_file}, format='multipart')
+    def test_invalid_data_upload(self):
+        # register a user and get token
+        response = self.client.post(reverse('register'), {'username': 'testuser', 'password': 'testpassword'})
+        response = self.client.post(reverse('token_obtain_pair'), {'username': 'testuser', 'password': 'testpassword'})
+        self.token = response.data['access']
+
+        # create invalid csv file
+        csv_file = SimpleUploadedFile("sample.csv", b"invalid data", content_type="text/csv")
+        # send request
+        response = self.client.post(reverse("upload-csv"), {'file': csv_file}, format='multipart', HTTP_AUTHORIZATION=f'Bearer {self.token}')
+        # check response
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('error', response.data)
-        self.assertEqual(response.data['error'], 'File is not CSV.')
+
+        # create mulformed csv file
+        csv_file = SimpleUploadedFile("sample.csv", b"client_reference_no,balance,consumer_name,consumer_address\nffeb5d88-e5af-45f0-9637-16ea469c58c0,59638.99,Jessica Williams,0233 Edwards Glens", content_type="text/csv")
+        # send request
+        response = self.client.post(reverse("upload-csv"), {'file': csv_file}, format='multipart', HTTP_AUTHORIZATION=f'Bearer {self.token}')
+        # check response
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+    def test_upload_without_token(self):
+        # get file path
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        file_path = os.path.join(base_dir, 'data_sample',  'consumers_balances.csv')
+
+        # read file content
+        with open(file_path, 'rb') as f:
+            csv_file = SimpleUploadedFile("sample.csv", f.read(), content_type="text/csv")
+        
+        # send request
+        response = self.client.post(reverse("upload-csv"), {'file': csv_file}, format='multipart')
+        
+        # check response
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data['detail'], 'Authentication credentials were not provided.')

@@ -1,33 +1,10 @@
 from django.db import models
-# from django.contrib.auth.models import AbstractUser
-
-
-# # User model
-# class User(AbstractUser):
-#     ROLE_CHOICES = (
-#         ('agency', 'Agency'),
-#         ('client', 'Client'),
-#     )
-#     role = models.CharField(max_length=10, choices=ROLE_CHOICES, blank=True, null=True)
-
-# class Agency(models.Model):
-#     name = models.CharField(max_length=255)
-#     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='client_profile')
-
-# class Client(models.Model):
-#     name = models.CharField(max_length=100)
-#     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='agency_profile')
-
-# class ClientAgency(models.Model):
-#     client = models.ForeignKey(Client, on_delete=models.CASCADE)
-#     agency = models.ForeignKey(Agency, on_delete=models.CASCADE)
-
+from django.contrib.auth.models import User
+from rest_framework import serializers
 
 # Account model
 class Account(models.Model):
-    # client = models.ForeignKey(Client, on_delete=models.CASCADE)
-    # agency = models.ForeignKey(Agency, on_delete=models.CASCADE)
-
+    id = models.AutoField(primary_key=True)
     client_reference_no = models.TextField()
 
     # max_digits may need to be adjusted based on the data if needed
@@ -44,4 +21,13 @@ class Account(models.Model):
     consumer_address = models.TextField()
     ssn = models.CharField(max_length=11)
 
+# User model
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "password"]
+        extra_kwargs = {"password": {"write_only": True}} # we don't want to show the password in the response
 
+    def create(self, validated_data):
+        user = User.objects.create_user(**validated_data)
+        return user

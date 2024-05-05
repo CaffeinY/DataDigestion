@@ -1,17 +1,19 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 import rest_framework
+from rest_framework import generics
+from rest_framework.pagination import LimitOffsetPagination
 from .models import Account
-from .serializers import AccountSerializer
+from .serializers import AccountSerializer, UserSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view
+from django.contrib.auth.models import User
 import csv
 import io
 
 class AccountListView(APIView):
-    permission_classes = [AllowAny]
-
-
+    permission_classes = [IsAuthenticated]
+    MAX_LIMIT = 1000
     def get(self, request, *args, **kwargs):
         queryset = Account.objects.all()
 
@@ -21,6 +23,19 @@ class AccountListView(APIView):
         consumer_name = request.query_params.get('consumer_name')
         status = request.query_params.get('status')
 
+        # pagination
+        limit = request.query_params.get('limit', 100)  
+        offset = request.query_params.get('offset', 0)  
+        try:
+            limit = int(limit)
+            if limit > self.MAX_LIMIT:
+                limit = self.MAX_LIMIT
+            offset = int(offset)
+        except ValueError:
+            return Response({'error': 'Invalid pagination parameters.'}, status=400)
+
+
+        # filter
         if min_balance is not None:
             queryset = queryset.filter(balance__gte=min_balance)
         if max_balance is not None:
@@ -30,12 +45,21 @@ class AccountListView(APIView):
         if status is not None:
             queryset = queryset.filter(status=status)
 
-        serializer = AccountSerializer(queryset, many=True)
-        return Response(serializer.data, status=rest_framework.status.HTTP_200_OK)
+        result_set = queryset[offset:offset + limit]
+        serializer = AccountSerializer(result_set, many=True)
+   
+        response_data = {
+            'count': queryset.count(),
+            'next': offset + limit if offset + limit < queryset.count() else None,
+            'previous': offset - limit if offset > 0 else None,
+            'results': serializer.data
+        }
+
+        return Response(response_data, status=rest_framework.status.HTTP_200_OK)
+
 
 class UploadCSVView(APIView):
-    permission_classes = [AllowAny]  
-
+    permission_classes = [IsAuthenticated]  
 
     def post(self, request, *args, **kwargs):
         # check if the file is in the request
@@ -71,3 +95,9 @@ class UploadCSVView(APIView):
             return Response({'error': str(e)}, status=400)
 
         return Response(status=200)
+
+
+class CreateUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]

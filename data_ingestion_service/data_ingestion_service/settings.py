@@ -40,6 +40,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+    'DEFAULT_LIMIT': 10,  # default limit
+    'MAX_LIMIT': 1000,  # max limit
 }
 
 SIMPLE_JWT = {
