@@ -4,38 +4,38 @@ import rest_framework
 from rest_framework import generics
 from rest_framework.pagination import LimitOffsetPagination
 from .models import Account
-from .serializers import AccountSerializer, UserSerializer
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from .serializers import AccountSerializer
+from rest_framework.permissions import  AllowAny
 from rest_framework.decorators import api_view
-from django.contrib.auth.models import User
 import csv
 import io
 
+MAX_LIMIT = 1000
+DEFAULT_LIMIT = 100
+DEFAUL_OFFSET = 0
+
 class AccountListView(APIView):
-    permission_classes = [IsAuthenticated]
-    MAX_LIMIT = 1000
+    permission_classes = [AllowAny]
+
     def get(self, request, *args, **kwargs):
         queryset = Account.objects.all()
+        
+        # pagination
+        limit = request.query_params.get('limit', DEFAULT_LIMIT)  
+        offset = request.query_params.get('offset', DEFAUL_OFFSET)  
+        try:
+            limit = int(limit)
+            if limit > MAX_LIMIT:
+                limit = MAX_LIMIT
+            offset = int(offset)
+        except ValueError:
+            return Response({'error': 'Invalid pagination parameters.'}, status=400)
 
         # filtered logics
         min_balance = request.query_params.get('min_balance')
         max_balance = request.query_params.get('max_balance')
         consumer_name = request.query_params.get('consumer_name')
         status = request.query_params.get('status')
-
-        # pagination
-        limit = request.query_params.get('limit', 100)  
-        offset = request.query_params.get('offset', 0)  
-        try:
-            limit = int(limit)
-            if limit > self.MAX_LIMIT:
-                limit = self.MAX_LIMIT
-            offset = int(offset)
-        except ValueError:
-            return Response({'error': 'Invalid pagination parameters.'}, status=400)
-
-
-        # filter
         if min_balance is not None:
             queryset = queryset.filter(balance__gte=min_balance)
         if max_balance is not None:
@@ -59,8 +59,7 @@ class AccountListView(APIView):
 
 
 class UploadCSVView(APIView):
-    permission_classes = [IsAuthenticated]  
-
+    permission_classes = [AllowAny]
     def post(self, request, *args, **kwargs):
         # check if the file is in the request
         if 'file' not in request.FILES:
@@ -97,7 +96,4 @@ class UploadCSVView(APIView):
         return Response(status=200)
 
 
-class CreateUserView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [AllowAny]
+
