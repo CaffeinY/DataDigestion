@@ -17,10 +17,11 @@ class ConsumerModelTest(TestCase):
         self.assertEqual(Account.objects.count(), 1)
         account = Account.objects.get(id=self.new_account.id)
 
-        expected_object_name = f'{account.consumer_name}'
-        expected_object_balance = account.balance
-        expected_object_status = account.status
-        self.assertEqual(expected_object_name, "John Doe")
-        self.assertEqual(expected_object_balance, 1000.00)
-        self.assertEqual(expected_object_status, "PAID_IN_FULL")
+        self.assertEqual(account.consumer_name, "John Doe")
+        self.assertEqual(account.balance, 1000.00)
+        self.assertEqual(account.status, "PAID_IN_FULL")
+        self.assertEqual(account.client_reference_no, "ffeb5d88-e5af-45f0-9637-16ea469c58c0")
+        self.assertEqual(account.consumer_address, "123 Elm Street")
+        self.assertEqual(account.ssn, "123-45-6789")
+
 

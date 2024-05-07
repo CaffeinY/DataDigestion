@@ -46,3 +46,9 @@ class AccountTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Invalid pagination parameters.')
         
+        # inclusive checking
+        response = self.client.get(reverse('accounts-list') + '?min_balance=13155.98&max_balance=13155.98')
+        self.assertEqual(response.status_code, 200)
+        res_data = response.data['results']
+        for acc in res_data:
+            self.assertEqual(Decimal(acc['balance']), Decimal('13155.98'))

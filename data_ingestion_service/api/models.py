@@ -1,5 +1,4 @@
 from django.db import models
-from rest_framework import serializers
 
 # Account model
 class Account(models.Model):
